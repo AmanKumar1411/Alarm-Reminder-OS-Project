@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A beautiful alarm clock and reminder app with modern design">
+    <title>Alarm Clock & Reminders</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Background Effects -->
+        <div class="bg-gradient"></div>
+        <div class="bg-blur"></div>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Current Time Display -->
+            <section class="time-display">
+                <div class="current-time" id="currentTime">00:00:00</div>
+                <div class="current-date" id="currentDate">Monday, January 1, 2024</div>
+            </section>
+
+            <!-- Tab Navigation -->
+            <nav class="tab-nav">
+                <button class="tab-btn active" data-tab="alarms" id="alarmsTab">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="13" r="7"></circle>
+                        <polyline points="12 10 12 13 14 15"></polyline>
+                        <path d="M17 3L19 5"></path>
+                        <path d="M5 3L7 5"></path>
+                    </svg>
+                    Alarms
+                </button>
+                <button class="tab-btn" data-tab="reminders" id="remindersTab">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    Reminders
+                </button>
+            </nav>
+
+            <!-- Alarms Tab Content -->
+            <section class="tab-content active" id="alarmsContent">
+                <div class="content-header">
+                    <h2>Your Alarms</h2>
+                    <button class="btn-primary" id="addAlarmBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Add Alarm
+                    </button>
+                </div>
+                <div class="items-list" id="alarmsList">
+                    <!-- Alarms will be dynamically added here -->
+                </div>
+            </section>
+
+            <!-- Reminders Tab Content -->
+            <section class="tab-content" id="remindersContent">
+                <div class="content-header">
+                    <h2>Your Reminders</h2>
+                    <button class="btn-primary" id="addReminderBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Add Reminder
+                    </button>
+                </div>
+                <div class="items-list" id="remindersList">
+                    <!-- Reminders will be dynamically added here -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal for Adding Alarm -->
+        <div class="modal" id="alarmModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Set New Alarm</h3>
+                    <button class="close-btn" id="closeAlarmModal">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="alarmTime">Time</label>
+                        <input type="time" id="alarmTime" class="input-field" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="alarmLabel">Label (optional)</label>
+                        <input type="text" id="alarmLabel" class="input-field" placeholder="Wake up, Meeting, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label>Repeat</label>
+                        <div class="days-selector">
+                            <button class="day-btn" data-day="Mon">M</button>
+                            <button class="day-btn" data-day="Tue">T</button>
+                            <button class="day-btn" data-day="Wed">W</button>
+                            <button class="day-btn" data-day="Thu">T</button>
+                            <button class="day-btn" data-day="Fri">F</button>
+                            <button class="day-btn" data-day="Sat">S</button>
+                            <button class="day-btn" data-day="Sun">S</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="cancelAlarm">Cancel</button>
+                    <button class="btn-primary" id="saveAlarm">Save Alarm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Adding Reminder -->
+        <div class="modal" id="reminderModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Create Reminder</h3>
+                    <button class="close-btn" id="closeReminderModal">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="reminderTitle">Title</label>
+                        <input type="text" id="reminderTitle" class="input-field" placeholder="What do you need to remember?" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reminderDate">Date</label>
+                        <input type="date" id="reminderDate" class="input-field" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reminderTime">Time</label>
+                        <input type="time" id="reminderTime" class="input-field" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reminderNotes">Notes (optional)</label>
+                        <textarea id="reminderNotes" class="input-field" rows="3" placeholder="Add additional details..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="cancelReminder">Cancel</button>
+                    <button class="btn-primary" id="saveReminder">Save Reminder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
