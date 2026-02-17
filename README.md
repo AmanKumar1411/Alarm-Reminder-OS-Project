@@ -1,36 +1,103 @@
 # Alarm & Reminder System ⏰
 
-A simple program that helps you set alarms and reminders on your computer.
+An Operating Systems mini-project demonstrating **process management**, **scheduling**, **timezone handling**, and **system calls** — with a C backend engine, Node.js bridge server, and a modern web frontend.
 
-## What is this?
-This is a mini-project showing how Operating Systems (the brain of your computer) handle time and tasks. Think of it like a very basic version of the alarm clock on your phone, but running directly on your computer's system.
+## Architecture
 
-## How it works (In simple terms)
-When you set an alarm:
-1.  **You give a time:** "Remind me in 5 minutes."
-2.  **The system waits:** The computer puts a tiny "worker" (a process) to sleep. It stays quiet and doesn't use up your computer's energy.
-3.  **Wake up!:** When the time is up, the system taps the worker on the shoulder (using a Signal), and it displays your message.
+```
+┌──────────────────────┐       HTTP        ┌────────────────────┐     fork/exec     ┌──────────────────┐
+│   Frontend (Browser) │ ◄──────────────► │  Node.js Server    │ ◄──────────────► │  C Alarm Engine  │
+│   HTML / CSS / JS    │   GET/POST /api   │  Express :3000     │  child_process    │  alarm_engine    │
+│   - World Clock Tab  │                   │  - Static files    │                   │  - worldclock    │
+│   - Alarms Tab       │                   │  - /api/worldclock │                   │  - alarm         │
+│   - Reminders Tab    │                   │  - /api/alarm      │                   │  - sounds        │
+└──────────────────────┘                   │  - /api/sounds     │                   └──────┬───────────┘
+                                           └────────────────────┘                          │
+                                                                                    OS Kernel
+                                                                              fork() sleep() waitpid()
+                                                                              setenv("TZ") tzset()
+                                                                              mktime() difftime()
+                                                                              execlp() access()
+```
 
-This demonstrates how computers can manage multiple things at once without getting confused!
+## OS Concepts Demonstrated
+
+| Concept | System Call / API | Where Used |
+|---------|------------------|------------|
+| Process Creation | `fork()` | Alarm scheduling — child process sleeps then fires alarm |
+| Process Replacement | `execlp()` | Sound playback — replaces child process with `afplay` |
+| Zombie Prevention | `SA_NOCLDWAIT` + `SIGCHLD` | Parent prevents zombie processes after child exits |
+| Process Waiting | `waitpid()` | Sound playback waits for afplay to finish |
+| Time Management | `time()`, `localtime()` | Getting current UNIX timestamp from kernel |
+| Timezone Handling | `setenv("TZ")`, `tzset()` | World clock switches process timezone for each query |
+| Calendar Conversion | `mktime()` | Converts `struct tm` (date/time) → UNIX timestamp |
+| Time Difference | `difftime()` | Calculates seconds until alarm should fire |
+| File Access Check | `access()` | Checks if sound files exist before playing |
+| Sleep Scheduling | `sleep()` | Child process suspended by kernel scheduler |
+| Terminal I/O | `printf("\a")` | Fallback beep when no sound system available |
+| System Command | `system()` | macOS `say` command for text-to-speech |
 
 ## Features
-*   **Simple Input:** Just enter the time delay.
-*   **Custom Reminders:** Add your own text like "Take a break!" or "Submit Project".
-*   **Lightweight:** Runs efficiently in the background.
 
-## How to Run it
+1. **World Clock** — Displays time in 4 timezones (India, New York, London, Tokyo) using OS-level `setenv("TZ")` + `tzset()`
+2. **Calendar Reminders** — Set alarms by date & time, converted to UNIX timestamps via `mktime()` / `difftime()`
+3. **Multiple Sounds** — Choose from 8 macOS system sounds, with Linux and terminal beep fallbacks
+4. **Frontend ↔ Backend** — Real HTTP API integration; frontend sends requests, backend spawns C processes
 
-1.  **Compile the code** (Convert the code into a runnable program):
-    ```bash
-    gcc src/main.c -o alarm
-    ```
+## Project Structure
 
-2.  **Start the alarm:**
-    ```bash
-    ./alarm
-    ```
+```
+os_alarm_system/
+├── Makefile                    # Build the C engine
+├── alarm_engine                # Compiled binary (after make)
+├── include/
+│   ├── alarm.h                 # Original header (preserved)
+│   └── alarm_engine.h          # New modular engine header
+├── src/
+│   ├── main.c                  # Original alarm (preserved)
+│   └── alarm_engine.c          # New modular C engine
+├── server/
+│   ├── package.json            # Node.js dependencies
+│   └── server.js               # Express bridge server
+└── frontend/
+    ├── index.html              # UI with 3 tabs
+    ├── script.js               # API integration logic
+    └── styles.css              # Premium dark theme
+```
 
-3.  **Follow the instructions:** Enter the duration and your message when asked.
+## How to Run
+
+### 1. Build the C Engine
+```bash
+cd /path/to/os_alarm_system
+make
+```
+
+### 2. Test the C Engine (CLI)
+```bash
+# World clock — prints timezone JSON
+./alarm_engine worldclock
+
+# List available sounds
+./alarm_engine sounds
+
+# Schedule an alarm (replace with a future time)
+./alarm_engine alarm "2026-02-14 18:00" "Team meeting" "glass"
+```
+
+### 3. Start the Server
+```bash
+cd server
+npm install      # First time only
+npm start        # Starts on http://localhost:3000
+```
+
+### 4. Open the Frontend
+Open **http://localhost:3000** in your browser.
+
+- **World Clock tab** → Live timezone data from the C engine
+- **Add Alarm** → Schedules via backend with `fork()` + `sleep()`
+- **Add Reminder** → Same backend scheduling with sound selection
 
 ---
-*Created as an Operating Systems Mini Project*
+*Created as an Operating Systems Mini Project — demonstrating process management, scheduling, system calls, and background execution.*

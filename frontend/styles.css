@@ -9,38 +9,43 @@
     --bg-tertiary: #1a1f2e;
     --bg-card: rgba(26, 31, 46, 0.6);
     --bg-modal: rgba(20, 24, 36, 0.95);
-    
+
     /* Accent Colors */
     --accent-primary: #6366f1;
     --accent-secondary: #8b5cf6;
     --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     --accent-glow: rgba(99, 102, 241, 0.3);
-    
+
+    /* Status Colors */
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+
     /* Text Colors */
     --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-muted: #64748b;
-    
+
     /* Border & Shadow */
     --border-color: rgba(148, 163, 184, 0.1);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
     --shadow-glow: 0 0 40px var(--accent-glow);
-    
+
     /* Spacing */
     --spacing-xs: 0.5rem;
     --spacing-sm: 0.75rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
-    
+
     /* Border Radius */
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 24px;
-    
+
     /* Transitions */
     --transition-fast: 150ms ease;
     --transition-base: 250ms ease;
@@ -79,7 +84,7 @@ body {
     width: 200%;
     height: 200%;
     background: radial-gradient(circle at 30% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 70% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
+        radial-gradient(circle at 70% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
     animation: gradientShift 20s ease infinite;
     pointer-events: none;
     z-index: 0;
@@ -101,13 +106,95 @@ body {
 }
 
 @keyframes gradientShift {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    50% { transform: translate(-5%, -5%) rotate(180deg); }
+
+    0%,
+    100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+
+    50% {
+        transform: translate(-5%, -5%) rotate(180deg);
+    }
 }
 
 @keyframes float {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(30px, -30px); }
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    50% {
+        transform: translate(30px, -30px);
+    }
+}
+
+/* ==================== */
+/* App Header */
+/* ==================== */
+
+.app-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto var(--spacing-lg);
+}
+
+.app-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.backend-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: all var(--transition-base);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warning);
+    animation: statusPulse 2s ease-in-out infinite;
+}
+
+.backend-status.online .status-dot {
+    background: var(--success);
+}
+
+.backend-status.offline .status-dot {
+    background: var(--danger);
+    animation: none;
+}
+
+@keyframes statusPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
 }
 
 /* ==================== */
@@ -155,8 +242,15 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.9; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.9;
+    }
 }
 
 .current-date {
@@ -171,7 +265,7 @@ body {
 
 .tab-nav {
     display: flex;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     margin-bottom: var(--spacing-xl);
     background: var(--bg-card);
     backdrop-filter: blur(20px);
@@ -185,13 +279,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-lg);
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
     background: transparent;
     color: var(--text-secondary);
     border: none;
     border-radius: var(--radius-md);
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-base);
@@ -233,6 +327,7 @@ body {
 
 .tab-btn svg {
     transition: transform var(--transition-base);
+    flex-shrink: 0;
 }
 
 .tab-btn:hover svg {
@@ -257,6 +352,7 @@ body {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -274,6 +370,24 @@ body {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
+}
+
+/* ==================== */
+/* OS Badge */
+/* ==================== */
+
+.os-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    color: var(--accent-primary);
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
 }
 
 /* ==================== */
@@ -386,6 +500,12 @@ body {
     opacity: 1;
 }
 
+/* Backend-scheduled cards have a green accent */
+.item-card.backend-scheduled::before {
+    background: linear-gradient(135deg, var(--success), #059669);
+    opacity: 1;
+}
+
 .item-header {
     display: flex;
     justify-content: space-between;
@@ -402,6 +522,12 @@ body {
 .item-label {
     font-size: 1rem;
     color: var(--text-secondary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.item-date-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
     margin-bottom: var(--spacing-xs);
 }
 
@@ -427,6 +553,30 @@ body {
 .day-badge.active {
     background: var(--accent-gradient);
     color: var(--text-primary);
+}
+
+/* Backend badge */
+.backend-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    color: var(--success);
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    margin-top: 6px;
+}
+
+.badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: statusPulse 2s ease-in-out infinite;
 }
 
 .item-actions {
@@ -494,6 +644,157 @@ body {
 }
 
 /* ==================== */
+/* World Clock */
+/* ==================== */
+
+.worldclock-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+}
+
+.worldclock-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.worldclock-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent-gradient);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+.worldclock-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent-primary);
+}
+
+.worldclock-card:hover::before {
+    opacity: 1;
+}
+
+.worldclock-card.daytime {
+    border-left: 3px solid rgba(251, 191, 36, 0.5);
+}
+
+.worldclock-card.nighttime {
+    border-left: 3px solid rgba(99, 102, 241, 0.5);
+}
+
+.wc-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: var(--spacing-md);
+}
+
+.wc-flag {
+    font-size: 1.5rem;
+}
+
+.wc-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.wc-daynight {
+    font-size: 1.25rem;
+}
+
+.wc-time {
+    font-size: 2rem;
+    font-weight: 700;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.wc-date {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.wc-offset {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(99, 102, 241, 0.15);
+    border-radius: 10px;
+    font-size: 0.7rem;
+    color: var(--accent-primary);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.wc-tz-id {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-family: 'Courier New', monospace;
+}
+
+.worldclock-loading,
+.worldclock-error {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: var(--spacing-xl) var(--spacing-lg);
+    color: var(--text-muted);
+}
+
+.worldclock-error svg {
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}
+
+.worldclock-error p {
+    margin-bottom: var(--spacing-xs);
+}
+
+.error-hint {
+    font-size: 0.8rem;
+}
+
+.error-hint code {
+    padding: 2px 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    margin: 0 auto var(--spacing-md);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ==================== */
 /* Modal */
 /* ==================== */
 
@@ -532,6 +833,7 @@ body {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -627,6 +929,42 @@ textarea.input-field {
     min-height: 80px;
 }
 
+/* Sound selector */
+select.input-field {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+}
+
+/* OS Concepts Note */
+.os-concepts-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.os-concepts-note svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--accent-primary);
+}
+
+.os-concepts-note strong {
+    color: var(--accent-primary);
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+}
+
 /* ==================== */
 /* Days Selector */
 /* ==================== */
@@ -707,6 +1045,10 @@ textarea.input-field {
     border-color: var(--accent-secondary);
 }
 
+.reminder-card.backend-scheduled {
+    border-left: 3px solid var(--success);
+}
+
 .reminder-title {
     font-size: 1.125rem;
     font-weight: 600;
@@ -734,37 +1076,52 @@ textarea.input-field {
     .container {
         padding: var(--spacing-md);
     }
-    
+
+    .app-header {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        text-align: center;
+    }
+
     .current-time {
         font-size: 3rem;
     }
-    
+
     .current-date {
         font-size: 1rem;
     }
-    
+
     .tab-btn {
-        font-size: 0.875rem;
-        padding: var(--spacing-sm) var(--spacing-md);
+        font-size: 0.8rem;
+        padding: var(--spacing-sm);
+        gap: 4px;
     }
-    
+
     .content-header {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--spacing-md);
     }
-    
+
     .modal-content {
         width: 95%;
     }
-    
+
     .days-selector {
         gap: 4px;
     }
-    
+
     .day-btn {
         height: 40px;
         font-size: 0.75rem;
+    }
+
+    .worldclock-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wc-time {
+        font-size: 1.75rem;
     }
 }
 
@@ -772,12 +1129,13 @@ textarea.input-field {
     .current-time {
         font-size: 2.5rem;
     }
-    
+
     .tab-nav {
-        gap: var(--spacing-sm);
+        gap: 4px;
     }
-    
-    .tab-btn span {
-        display: none;
+
+    .tab-btn svg {
+        width: 16px;
+        height: 16px;
     }
 }

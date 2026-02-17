@@ -1,23 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A beautiful alarm clock and reminder app with modern design">
-    <title>Alarm Clock & Reminders</title>
+    <meta name="description"
+        content="Alarm & Reminder System — An OS mini-project demonstrating process management, scheduling, and timezone handling">
+    <title>Alarm & Reminder System</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="container">
         <!-- Background Effects -->
         <div class="bg-gradient"></div>
         <div class="bg-blur"></div>
-        
+
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Header with Backend Status -->
+            <div class="app-header">
+                <h1 class="app-title">⏰ Alarm & Reminder System</h1>
+                <div class="backend-status" id="backendStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+            </div>
+
             <!-- Current Time Display -->
             <section class="time-display">
                 <div class="current-time" id="currentTime">00:00:00</div>
@@ -42,6 +54,16 @@
                     </svg>
                     Reminders
                 </button>
+                <button class="tab-btn" data-tab="worldclock" id="worldclockTab">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path
+                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                        </path>
+                    </svg>
+                    World Clock
+                </button>
             </nav>
 
             <!-- Alarms Tab Content -->
@@ -49,7 +71,8 @@
                 <div class="content-header">
                     <h2>Your Alarms</h2>
                     <button class="btn-primary" id="addAlarmBtn">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
                         </svg>
@@ -66,7 +89,8 @@
                 <div class="content-header">
                     <h2>Your Reminders</h2>
                     <button class="btn-primary" id="addReminderBtn">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
                         </svg>
@@ -77,6 +101,20 @@
                     <!-- Reminders will be dynamically added here -->
                 </div>
             </section>
+
+            <!-- World Clock Tab Content -->
+            <section class="tab-content" id="worldclockContent">
+                <div class="content-header">
+                    <h2>World Clock</h2>
+                </div>
+                <div class="worldclock-grid" id="worldclockGrid">
+                    <!-- Timezone cards rendered dynamically -->
+                    <div class="worldclock-loading">
+                        <div class="spinner"></div>
+
+                    </div>
+                </div>
+            </section>
         </main>
 
         <!-- Modal for Adding Alarm -->
@@ -85,7 +123,8 @@
                 <div class="modal-header">
                     <h3>Set New Alarm</h3>
                     <button class="close-btn" id="closeAlarmModal">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
@@ -93,12 +132,23 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
+                        <label for="alarmDate">Date</label>
+                        <input type="date" id="alarmDate" class="input-field" required>
+                    </div>
+                    <div class="form-group">
                         <label for="alarmTime">Time</label>
                         <input type="time" id="alarmTime" class="input-field" required>
                     </div>
                     <div class="form-group">
-                        <label for="alarmLabel">Label (optional)</label>
+                        <label for="alarmLabel">Label</label>
                         <input type="text" id="alarmLabel" class="input-field" placeholder="Wake up, Meeting, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label for="alarmSound">Sound</label>
+                        <select id="alarmSound" class="input-field sound-select">
+                            <option value="glass">🔔 Glass chime</option>
+                            <!-- More sounds loaded dynamically -->
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Repeat</label>
@@ -112,10 +162,20 @@
                             <button class="day-btn" data-day="Sun">S</button>
                         </div>
                     </div>
+                    <div class="os-concepts-note">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <span>Backend uses <strong>mktime()</strong> → UNIX timestamp, <strong>fork()</strong> → child
+                            process, <strong>sleep()</strong> → kernel scheduler</span>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn-secondary" id="cancelAlarm">Cancel</button>
-                    <button class="btn-primary" id="saveAlarm">Save Alarm</button>
+                    <button class="btn-primary" id="saveAlarm">Schedule Alarm</button>
                 </div>
             </div>
         </div>
@@ -126,7 +186,8 @@
                 <div class="modal-header">
                     <h3>Create Reminder</h3>
                     <button class="close-btn" id="closeReminderModal">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
@@ -135,7 +196,8 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label for="reminderTitle">Title</label>
-                        <input type="text" id="reminderTitle" class="input-field" placeholder="What do you need to remember?" required>
+                        <input type="text" id="reminderTitle" class="input-field"
+                            placeholder="What do you need to remember?" required>
                     </div>
                     <div class="form-group">
                         <label for="reminderDate">Date</label>
@@ -146,8 +208,15 @@
                         <input type="time" id="reminderTime" class="input-field" required>
                     </div>
                     <div class="form-group">
+                        <label for="reminderSound">Sound</label>
+                        <select id="reminderSound" class="input-field sound-select">
+                            <option value="glass">🔔 Glass chime</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="reminderNotes">Notes (optional)</label>
-                        <textarea id="reminderNotes" class="input-field" rows="3" placeholder="Add additional details..."></textarea>
+                        <textarea id="reminderNotes" class="input-field" rows="3"
+                            placeholder="Add additional details..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -160,4 +229,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>
