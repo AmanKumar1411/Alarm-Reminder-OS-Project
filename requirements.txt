@@ -1,0 +1,7 @@
+# OS Alarm System - Python Dependencies
+#
+# This project uses only Python standard library modules:
+#   os, sys, signal, time, json, errno, subprocess, platform
+#
+# No external packages are required.
+# Python 3.6+ is needed.
