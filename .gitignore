@@ -6,19 +6,60 @@ __pycache__/
 *.egg
 venv/
 .env
+dist/
+build/
+*.whl
 
 # Node.js
+node_modules/
 server/node_modules/
-server/package-lock.json
 
 # OS files
 .DS_Store
 Thumbs.db
+._*
+*.swp
+*.swo
+*~
 
 # IDE
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
+
+# LaTeX source & build artifacts
+*.tex
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+*.out
+*.bbl
+*.blg
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.pdf
+
+# Docs build output
+docs/
+site/
+
+# Debug
+*.dSYM/
 
 # Temporary
 /tmp/
+*.log
+
+# Secrets / credentials
+*.pem
+*.key
+*.crt
+*.env.local
+*.env.*.local
 *.log
