@@ -64,6 +64,15 @@
                     </svg>
                     World Clock
                 </button>
+                <button class="tab-btn" data-tab="calendar" id="calendarTab">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Calendar
+                </button>
             </nav>
 
             <!-- Alarms Tab Content -->
@@ -112,6 +121,48 @@
                     <div class="worldclock-loading">
                         <div class="spinner"></div>
 
+                    </div>
+                </div>
+            </section>
+
+            <!-- Calendar Tab Content -->
+            <section class="tab-content" id="calendarContent">
+                <div class="content-header">
+                    <h2 id="calendarTitle">Calendar</h2>
+                    <div class="calendar-nav">
+                        <button class="icon-btn" id="calPrev" title="Previous month">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+                        <button class="btn-secondary btn-sm" id="calToday">Today</button>
+                        <button class="icon-btn" id="calNext" title="Next month">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="calendar-grid" id="calendarGrid">
+                    <!-- Calendar rendered dynamically -->
+                </div>
+                <!-- Day detail panel (shown when a date is clicked) -->
+                <div class="day-detail" id="dayDetail" style="display:none;">
+                    <div class="day-detail-header">
+                        <h3 id="dayDetailTitle">Events</h3>
+                        <button class="btn-primary btn-sm" id="addTodoFromCal">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add
+                        </button>
+                    </div>
+                    <div class="day-detail-list" id="dayDetailList">
+                        <!-- Entries for selected day -->
                     </div>
                 </div>
             </section>
@@ -222,6 +273,69 @@
                 <div class="modal-footer">
                     <button class="btn-secondary" id="cancelReminder">Cancel</button>
                     <button class="btn-primary" id="saveReminder">Save Reminder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Adding/Editing Todo from Calendar -->
+        <div class="modal" id="todoModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="todoModalTitle">Add Todo</h3>
+                    <button class="close-btn" id="closeTodoModal">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <div class="type-selector">
+                            <button class="type-btn active" data-type="todo" id="typeTodoBtn">📋 Todo</button>
+                            <button class="type-btn" data-type="reminder" id="typeReminderBtn">🔔 Reminder</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="todoDate">Date</label>
+                        <input type="date" id="todoDate" class="input-field" required>
+                    </div>
+                    <div class="form-group todo-time-group" id="todoTimeGroup" style="display:none;">
+                        <label for="todoTime">Time</label>
+                        <input type="time" id="todoTime" class="input-field">
+                    </div>
+                    <div class="form-group">
+                        <label for="todoTitle">Title</label>
+                        <input type="text" id="todoTitle" class="input-field" placeholder="What needs to be done?"
+                            required>
+                    </div>
+                    <div class="form-group">
+                        <label for="todoDescription">Description (optional)</label>
+                        <textarea id="todoDescription" class="input-field" rows="3"
+                            placeholder="Add details..."></textarea>
+                    </div>
+                    <div class="form-group todo-sound-group" id="todoSoundGroup" style="display:none;">
+                        <label for="todoSound">Sound</label>
+                        <select id="todoSound" class="input-field sound-select">
+                            <option value="glass">🔔 Glass chime</option>
+                        </select>
+                    </div>
+                    <div class="os-concepts-note">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <span>Todos use <strong>file I/O</strong> (kernel VFS). Reminders additionally use
+                            <strong>os.fork()</strong> + <strong>time.sleep()</strong> for scheduled triggers.</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="cancelTodo">Cancel</button>
+                    <button class="btn-primary" id="saveTodo">Save</button>
                 </div>
             </div>
         </div>

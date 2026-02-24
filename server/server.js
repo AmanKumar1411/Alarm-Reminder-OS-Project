@@ -277,6 +277,199 @@ app.get("/api/status", (req, res) => {
 });
 
 /* ================================================================
+ *  GET /api/calendar/:yearMonth — Calendar Data for a Month
+ *
+ *  Invokes: python3 alarm_engine.py calendar "YYYY-MM"
+ *  Aggregates alarms (from PID tracking) and todos (from JSON file)
+ *  into a unified calendar view. Demonstrates reading multiple
+ *  OS-level data sources (process table + filesystem).
+ * ================================================================ */
+app.get("/api/calendar/:yearMonth", (req, res) => {
+  const ym = req.params.yearMonth;
+  execFile(
+    PYTHON,
+    [ENGINE_PATH, "calendar", ym],
+    { timeout: 5000 },
+    (error, stdout, stderr) => {
+      if (stderr) console.log("[Server] Engine log:", stderr.trim());
+      if (error) {
+        console.error("[Server] calendar error:", error.message);
+        return res.status(500).json({ error: "Failed to get calendar data" });
+      }
+      try {
+        const data = JSON.parse(stdout);
+        res.json(data);
+      } catch (parseErr) {
+        res.status(500).json({ error: "Invalid response from engine" });
+      }
+    },
+  );
+});
+
+/* ================================================================
+ *  POST /api/todo — Add a Todo
+ *
+ *  Body: { date: "YYYY-MM-DD", title: "...", description: "..." }
+ *  Invokes: python3 alarm_engine.py todo add "date" "title" "desc"
+ *  OS Concept: File-based persistent storage via kernel I/O calls.
+ * ================================================================ */
+app.post("/api/todo", (req, res) => {
+  const { date, title, description } = req.body;
+  if (!date || !title) {
+    return res
+      .status(400)
+      .json({ status: "error", message: "Missing date or title" });
+  }
+  const args = [ENGINE_PATH, "todo", "add", date, title];
+  if (description) args.push(description);
+
+  execFile(PYTHON, args, { timeout: 5000 }, (error, stdout, stderr) => {
+    if (stderr) console.log("[Server] Engine log:", stderr.trim());
+    if (error) {
+      console.error("[Server] todo add error:", error.message);
+      return res
+        .status(500)
+        .json({ status: "error", message: "Failed to add todo" });
+    }
+    try {
+      res.json(JSON.parse(stdout));
+    } catch (e) {
+      res.json({ status: "success", raw: stdout.trim() });
+    }
+  });
+});
+
+/* ================================================================
+ *  GET /api/todos — List All Todos
+ *
+ *  Invokes: python3 alarm_engine.py todo list
+ * ================================================================ */
+app.get("/api/todos", (req, res) => {
+  execFile(
+    PYTHON,
+    [ENGINE_PATH, "todo", "list"],
+    { timeout: 5000 },
+    (error, stdout, stderr) => {
+      if (stderr) console.log("[Server] Engine log:", stderr.trim());
+      if (error) {
+        console.error("[Server] todo list error:", error.message);
+        return res.status(500).json({ error: "Failed to list todos" });
+      }
+      try {
+        res.json(JSON.parse(stdout));
+      } catch (e) {
+        res.status(500).json({ error: "Invalid response" });
+      }
+    },
+  );
+});
+
+/* ================================================================
+ *  GET /api/todos/:date — List Todos for a Date
+ *
+ *  Invokes: python3 alarm_engine.py todo date "YYYY-MM-DD"
+ * ================================================================ */
+app.get("/api/todos/:date", (req, res) => {
+  execFile(
+    PYTHON,
+    [ENGINE_PATH, "todo", "date", req.params.date],
+    { timeout: 5000 },
+    (error, stdout, stderr) => {
+      if (stderr) console.log("[Server] Engine log:", stderr.trim());
+      if (error) {
+        return res.status(500).json({ error: "Failed to get todos" });
+      }
+      try {
+        res.json(JSON.parse(stdout));
+      } catch (e) {
+        res.status(500).json({ error: "Invalid response" });
+      }
+    },
+  );
+});
+
+/* ================================================================
+ *  PUT /api/todo/:id/complete — Toggle Todo Completion
+ *
+ *  Invokes: python3 alarm_engine.py todo complete <id>
+ * ================================================================ */
+app.put("/api/todo/:id/complete", (req, res) => {
+  execFile(
+    PYTHON,
+    [ENGINE_PATH, "todo", "complete", req.params.id],
+    { timeout: 5000 },
+    (error, stdout, stderr) => {
+      if (stderr) console.log("[Server] Engine log:", stderr.trim());
+      if (error) {
+        return res
+          .status(500)
+          .json({ status: "error", message: "Failed to toggle todo" });
+      }
+      try {
+        res.json(JSON.parse(stdout));
+      } catch (e) {
+        res.json({ status: "success", raw: stdout.trim() });
+      }
+    },
+  );
+});
+
+/* ================================================================
+ *  PUT /api/todo/:id — Edit a Todo
+ *
+ *  Body: { title: "...", description: "..." }
+ *  Invokes: python3 alarm_engine.py todo edit <id> "title" "desc"
+ * ================================================================ */
+app.put("/api/todo/:id", (req, res) => {
+  const { title, description } = req.body;
+  if (!title) {
+    return res.status(400).json({ status: "error", message: "Missing title" });
+  }
+  const args = [ENGINE_PATH, "todo", "edit", req.params.id, title];
+  if (description) args.push(description);
+
+  execFile(PYTHON, args, { timeout: 5000 }, (error, stdout, stderr) => {
+    if (stderr) console.log("[Server] Engine log:", stderr.trim());
+    if (error) {
+      return res
+        .status(500)
+        .json({ status: "error", message: "Failed to edit todo" });
+    }
+    try {
+      res.json(JSON.parse(stdout));
+    } catch (e) {
+      res.json({ status: "success", raw: stdout.trim() });
+    }
+  });
+});
+
+/* ================================================================
+ *  DELETE /api/todo/:id — Delete a Todo
+ *
+ *  Invokes: python3 alarm_engine.py todo delete <id>
+ * ================================================================ */
+app.delete("/api/todo/:id", (req, res) => {
+  execFile(
+    PYTHON,
+    [ENGINE_PATH, "todo", "delete", req.params.id],
+    { timeout: 5000 },
+    (error, stdout, stderr) => {
+      if (stderr) console.log("[Server] Engine log:", stderr.trim());
+      if (error) {
+        return res
+          .status(500)
+          .json({ status: "error", message: "Failed to delete todo" });
+      }
+      try {
+        res.json(JSON.parse(stdout));
+      } catch (e) {
+        res.json({ status: "success", raw: stdout.trim() });
+      }
+    },
+  );
+});
+
+/* ================================================================
  *  Fallback — Serve index.html for SPA-like behavior
  * ================================================================ */
 app.get("*", (req, res) => {

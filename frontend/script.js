@@ -21,6 +21,14 @@ let availableSounds = [];
 let editingAlarmId = null;
 let editingReminderId = null;
 
+// Calendar state
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth() + 1; // 1-indexed
+let calendarData = null;
+let selectedCalDate = null;
+let editingTodoId = null;
+let calTodos = []; // backend todos cached
+
 // ==================== //
 // Notification Permission
 // ==================== //
@@ -185,6 +193,69 @@ function initializeApp() {
       if (e.target === modal) modal.classList.remove("active");
     });
   });
+
+  // Calendar controls
+  const calPrev = document.getElementById("calPrev");
+  const calNext = document.getElementById("calNext");
+  const calToday = document.getElementById("calToday");
+  if (calPrev)
+    calPrev.addEventListener("click", () => {
+      calMonth--;
+      if (calMonth < 1) {
+        calMonth = 12;
+        calYear--;
+      }
+      fetchCalendar();
+    });
+  if (calNext)
+    calNext.addEventListener("click", () => {
+      calMonth++;
+      if (calMonth > 12) {
+        calMonth = 1;
+        calYear++;
+      }
+      fetchCalendar();
+    });
+  if (calToday)
+    calToday.addEventListener("click", () => {
+      const n = new Date();
+      calYear = n.getFullYear();
+      calMonth = n.getMonth() + 1;
+      fetchCalendar();
+    });
+
+  // Add todo from calendar day detail
+  const addTodoFromCal = document.getElementById("addTodoFromCal");
+  if (addTodoFromCal)
+    addTodoFromCal.addEventListener("click", () =>
+      openTodoModal(selectedCalDate),
+    );
+
+  // Todo modal
+  const closeTodoModal = document.getElementById("closeTodoModal");
+  if (closeTodoModal)
+    closeTodoModal.addEventListener("click", closeTodoModalFn);
+  const cancelTodo = document.getElementById("cancelTodo");
+  if (cancelTodo) cancelTodo.addEventListener("click", closeTodoModalFn);
+  const saveTodo = document.getElementById("saveTodo");
+  if (saveTodo) saveTodo.addEventListener("click", saveTodoEntry);
+
+  // Type selector in todo modal
+  document.querySelectorAll(".type-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document
+        .querySelectorAll(".type-btn")
+        .forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const isReminder = btn.dataset.type === "reminder";
+      document.getElementById("todoTimeGroup").style.display = isReminder
+        ? "block"
+        : "none";
+      document.getElementById("todoSoundGroup").style.display = isReminder
+        ? "block"
+        : "none";
+    });
+  });
 }
 
 // ==================== //
@@ -247,6 +318,7 @@ function populateSoundSelectors() {
   const selectors = [
     document.getElementById("alarmSound"),
     document.getElementById("reminderSound"),
+    document.getElementById("todoSound"),
   ];
   selectors.forEach((select) => {
     if (!select) return;
@@ -313,6 +385,10 @@ function switchTab(tabName) {
       clearInterval(window.wcInterval);
       window.wcInterval = null;
     }
+  }
+
+  if (tabName === "calendar") {
+    fetchCalendar();
   }
 
   requestAnimationFrame(() => {
@@ -895,13 +971,16 @@ function showNotification(message, type = "info") {
 function saveToLocalStorage() {
   localStorage.setItem("alarms", JSON.stringify(alarms));
   localStorage.setItem("reminders", JSON.stringify(reminders));
+  localStorage.setItem("calTodos", JSON.stringify(calTodos));
 }
 
 function loadFromLocalStorage() {
   const sa = localStorage.getItem("alarms");
   const sr = localStorage.getItem("reminders");
+  const st = localStorage.getItem("calTodos");
   if (sa) alarms = JSON.parse(sa);
   if (sr) reminders = JSON.parse(sr);
+  if (st) calTodos = JSON.parse(st);
 }
 
 function sendBrowserNotification(title, body) {
@@ -911,4 +990,460 @@ function sendBrowserNotification(title, body) {
       icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236366f1"><circle cx="12" cy="13" r="7"/></svg>',
     });
   }
+}
+
+// ==================== //
+// Calendar & Todo System
+// ==================== //
+
+async function fetchCalendar() {
+  const ym = `${calYear}-${String(calMonth).padStart(2, "0")}`;
+  const titleEl = document.getElementById("calendarTitle");
+  if (titleEl) {
+    const monthNames = [
+      "",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    titleEl.textContent = `${monthNames[calMonth]} ${calYear}`;
+  }
+
+  // Also load backend todos
+  await fetchBackendTodos();
+
+  try {
+    const res = await fetch(`${API_BASE}/calendar/${ym}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      calendarData = await res.json();
+      renderCalendar(calendarData);
+    } else {
+      renderCalendarFallback();
+    }
+  } catch (e) {
+    renderCalendarFallback();
+  }
+}
+
+async function fetchBackendTodos() {
+  try {
+    const res = await fetch(`${API_BASE}/todos`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      calTodos = await res.json();
+    }
+  } catch (e) {
+    // Use local fallback
+  }
+}
+
+function renderCalendarFallback() {
+  // Render a basic calendar without backend data
+  const d = new Date(calYear, calMonth - 1, 1);
+  const numDays = new Date(calYear, calMonth, 0).getDate();
+  const firstDay = d.getDay(); // 0=Sun
+  const todayStr = getLocalDateString();
+
+  renderCalendarGrid(numDays, firstDay === 0 ? 6 : firstDay - 1, todayStr, {});
+}
+
+function renderCalendar(data) {
+  const todayStr = data.today || getLocalDateString();
+  // data.first_weekday is 0=Monday in Python's calendar module
+  const firstWeekday = data.first_weekday;
+  const numDays = data.num_days;
+
+  // Merge backend events with local alarms/reminders
+  const events = data.events || {};
+
+  // Add local alarms and reminders to events
+  const monthPrefix = `${calYear}-${String(calMonth).padStart(2, "0")}`;
+  alarms.forEach((a) => {
+    if (a.date && a.date.startsWith(monthPrefix)) {
+      if (!events[a.date]) events[a.date] = { alarms: [], todos: [], count: 0 };
+      events[a.date].count++;
+      events[a.date].alarms.push({
+        type: "alarm",
+        message: a.label,
+        time: a.time,
+        local: true,
+      });
+    }
+  });
+  reminders.forEach((r) => {
+    if (r.date && r.date.startsWith(monthPrefix)) {
+      if (!events[r.date]) events[r.date] = { alarms: [], todos: [], count: 0 };
+      events[r.date].count++;
+      events[r.date].alarms.push({
+        type: "reminder",
+        message: r.title,
+        time: r.time,
+        local: true,
+        completed: r.completed,
+      });
+    }
+  });
+
+  renderCalendarGrid(numDays, firstWeekday, todayStr, events);
+}
+
+function renderCalendarGrid(numDays, firstWeekday, todayStr, events) {
+  const grid = document.getElementById("calendarGrid");
+  if (!grid) return;
+
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  let html = '<div class="cal-header-row">';
+  dayNames.forEach((d) => {
+    html += `<div class="cal-day-name">${d}</div>`;
+  });
+  html += '</div><div class="cal-body">';
+
+  // Empty cells before first day
+  for (let i = 0; i < firstWeekday; i++) {
+    html += '<div class="cal-cell cal-empty"></div>';
+  }
+
+  const monthPrefix = `${calYear}-${String(calMonth).padStart(2, "0")}`;
+
+  for (let day = 1; day <= numDays; day++) {
+    const dateKey = `${monthPrefix}-${String(day).padStart(2, "0")}`;
+    const isToday = dateKey === todayStr;
+    const eventData = events[dateKey];
+    const hasEvents = eventData && eventData.count > 0;
+    const isSelected = dateKey === selectedCalDate;
+
+    let classes = "cal-cell";
+    if (isToday) classes += " cal-today";
+    if (hasEvents) classes += " cal-has-events";
+    if (isSelected) classes += " cal-selected";
+
+    let dots = "";
+    if (hasEvents) {
+      const alarmCount = (eventData.alarms || []).length;
+      const todoCount = (eventData.todos || []).length;
+      dots = '<div class="cal-dots">';
+      for (let i = 0; i < Math.min(alarmCount, 3); i++)
+        dots += '<span class="cal-dot alarm-dot"></span>';
+      for (let i = 0; i < Math.min(todoCount, 3); i++)
+        dots += '<span class="cal-dot todo-dot"></span>';
+      dots += "</div>";
+    }
+
+    html += `<div class="${classes}" data-date="${dateKey}" onclick="selectCalDate('${dateKey}')">
+      <span class="cal-day-num">${day}</span>
+      ${dots}
+    </div>`;
+  }
+
+  // Fill remaining cells
+  const totalCells = firstWeekday + numDays;
+  const remainder = totalCells % 7;
+  if (remainder > 0) {
+    for (let i = 0; i < 7 - remainder; i++) {
+      html += '<div class="cal-cell cal-empty"></div>';
+    }
+  }
+
+  html += "</div>";
+  grid.innerHTML = html;
+}
+
+function selectCalDate(dateStr) {
+  selectedCalDate = dateStr;
+
+  // Highlight selected
+  document.querySelectorAll(".cal-cell").forEach((c) => {
+    c.classList.toggle("cal-selected", c.dataset.date === dateStr);
+  });
+
+  // Show day detail panel
+  const detail = document.getElementById("dayDetail");
+  const detailTitle = document.getElementById("dayDetailTitle");
+  const detailList = document.getElementById("dayDetailList");
+  if (!detail || !detailList) return;
+
+  detail.style.display = "block";
+  const d = new Date(dateStr + "T00:00:00");
+  detailTitle.textContent = d.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  // Gather entries for this date
+  let html = "";
+
+  // Backend alarms (from calendarData)
+  if (calendarData && calendarData.events && calendarData.events[dateStr]) {
+    const ev = calendarData.events[dateStr];
+    (ev.alarms || []).forEach((a) => {
+      html += `<div class="day-entry day-entry-alarm">
+        <span class="entry-icon">⏰</span>
+        <div class="entry-info">
+          <div class="entry-title">${a.message}</div>
+          <div class="entry-meta">${a.time || ""} · Alarm (PID ${a.pid || "—"})</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // Local alarms on this date
+  alarms
+    .filter((a) => a.date === dateStr)
+    .forEach((a) => {
+      html += `<div class="day-entry day-entry-alarm">
+        <span class="entry-icon">⏰</span>
+        <div class="entry-info">
+          <div class="entry-title">${a.label}</div>
+          <div class="entry-meta">${formatTime(a.time)} · Alarm</div>
+        </div>
+      </div>`;
+    });
+
+  // Local reminders on this date
+  reminders
+    .filter((r) => r.date === dateStr)
+    .forEach((r) => {
+      html += `<div class="day-entry day-entry-reminder ${r.completed ? "entry-completed" : ""}">
+        <span class="entry-icon">🔔</span>
+        <div class="entry-info">
+          <div class="entry-title">${r.title}</div>
+          <div class="entry-meta">${formatTime(r.time)} · Reminder${r.completed ? " ✓" : ""}</div>
+        </div>
+      </div>`;
+    });
+
+  // Backend todos on this date
+  const dateTodos = calTodos.filter((t) => t.date === dateStr);
+  dateTodos.forEach((t) => {
+    html += `<div class="day-entry day-entry-todo ${t.completed ? "entry-completed" : ""}">
+      <button class="todo-check-btn" onclick="toggleBackendTodo(${t.id})" title="Toggle complete">
+        ${
+          t.completed
+            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>'
+        }
+      </button>
+      <div class="entry-info" style="flex:1">
+        <div class="entry-title">${t.title}</div>
+        ${t.description ? `<div class="entry-meta">${t.description}</div>` : ""}
+      </div>
+      <div class="entry-actions">
+        <button class="icon-btn icon-btn-sm" onclick="openTodoModal('${dateStr}', ${t.id})" title="Edit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="icon-btn icon-btn-sm delete" onclick="deleteBackendTodo(${t.id})" title="Delete">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+    </div>`;
+  });
+
+  if (!html) {
+    html =
+      '<div class="day-empty">No events for this day. Click <strong>Add</strong> to create one.</div>';
+  }
+
+  detailList.innerHTML = html;
+}
+
+// ==================== //
+// Todo Modal (Calendar)
+// ==================== //
+
+function openTodoModal(dateStr, todoId = null) {
+  const modal = document.getElementById("todoModal");
+  modal.classList.add("active");
+
+  // Reset type to todo
+  document
+    .querySelectorAll(".type-btn")
+    .forEach((b) => b.classList.remove("active"));
+  document.getElementById("typeTodoBtn").classList.add("active");
+  document.getElementById("todoTimeGroup").style.display = "none";
+  document.getElementById("todoSoundGroup").style.display = "none";
+
+  if (todoId) {
+    // Edit mode
+    const t = calTodos.find((x) => x.id === todoId);
+    if (!t) return closeTodoModalFn();
+    editingTodoId = todoId;
+    document.getElementById("todoModalTitle").textContent = "Edit Todo";
+    document.getElementById("todoDate").value = t.date;
+    document.getElementById("todoTitle").value = t.title;
+    document.getElementById("todoDescription").value = t.description || "";
+  } else {
+    // Create mode
+    editingTodoId = null;
+    document.getElementById("todoModalTitle").textContent = "Add Entry";
+    document.getElementById("todoDate").value = dateStr || getLocalDateString();
+    document.getElementById("todoTitle").value = "";
+    document.getElementById("todoDescription").value = "";
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    document.getElementById("todoTime").value = getLocalTimeString(now);
+  }
+}
+
+function closeTodoModalFn() {
+  document.getElementById("todoModal").classList.remove("active");
+  editingTodoId = null;
+}
+
+async function saveTodoEntry() {
+  const isReminder =
+    document.querySelector(".type-btn.active")?.dataset.type === "reminder";
+  const date = document.getElementById("todoDate").value;
+  const title = document.getElementById("todoTitle").value;
+  const description = document.getElementById("todoDescription").value;
+
+  if (!date || !title) {
+    showNotification("Date and title are required", "error");
+    return;
+  }
+
+  if (isReminder) {
+    // Schedule as a time-based reminder via the alarm engine
+    const time = document.getElementById("todoTime").value;
+    const sound = document.getElementById("todoSound")?.value || "glass";
+    if (!time) {
+      showNotification("Time is required for reminders", "error");
+      return;
+    }
+
+    // Add to local reminders
+    const newReminder = {
+      id: Date.now(),
+      title,
+      date,
+      time,
+      notes: description,
+      sound,
+      completed: false,
+      backendScheduled: false,
+      childPid: null,
+    };
+    reminders.push(newReminder);
+    saveToLocalStorage();
+    renderReminders();
+    closeTodoModalFn();
+    showNotification("Reminder scheduled", "info");
+
+    // Schedule in backend
+    if (backendOnline) {
+      try {
+        const res = await fetch(`${API_BASE}/alarm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            datetime: `${date} ${time}`,
+            message: title,
+            sound,
+          }),
+        });
+        const result = await res.json();
+        if (result.status === "success") {
+          newReminder.backendScheduled = true;
+          newReminder.childPid = result.child_pid;
+          saveToLocalStorage();
+        }
+      } catch (e) {}
+    }
+
+    fetchCalendar();
+    return;
+  }
+
+  // Handle todo
+  if (editingTodoId) {
+    // Edit existing
+    try {
+      const res = await fetch(`${API_BASE}/todo/${editingTodoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description }),
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        showNotification("Todo updated", "info");
+      } else {
+        showNotification(result.message || "Failed to update", "warning");
+      }
+    } catch (e) {
+      showNotification("Failed to update todo", "error");
+    }
+  } else {
+    // Create new
+    try {
+      const res = await fetch(`${API_BASE}/todo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, title, description }),
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        showNotification("Todo added", "info");
+      } else {
+        showNotification(result.message || "Failed to add", "warning");
+      }
+    } catch (e) {
+      showNotification("Failed to add todo", "error");
+    }
+  }
+
+  closeTodoModalFn();
+  await fetchCalendar();
+  if (selectedCalDate) selectCalDate(selectedCalDate);
+}
+
+async function toggleBackendTodo(id) {
+  try {
+    const res = await fetch(`${API_BASE}/todo/${id}/complete`, {
+      method: "PUT",
+    });
+    const result = await res.json();
+    if (result.status === "success") {
+      showNotification(result.message, "info");
+    }
+  } catch (e) {
+    showNotification("Failed to toggle todo", "error");
+  }
+  await fetchCalendar();
+  if (selectedCalDate) selectCalDate(selectedCalDate);
+}
+
+async function deleteBackendTodo(id) {
+  if (!confirm("Delete this todo?")) return;
+  try {
+    const res = await fetch(`${API_BASE}/todo/${id}`, {
+      method: "DELETE",
+    });
+    const result = await res.json();
+    if (result.status === "success") {
+      showNotification("Todo deleted", "info");
+    }
+  } catch (e) {
+    showNotification("Failed to delete todo", "error");
+  }
+  await fetchCalendar();
+  if (selectedCalDate) selectCalDate(selectedCalDate);
 }

@@ -10,18 +10,19 @@ An Operating Systems mini-project that implements a **miniature task scheduler**
 
 1. [Architecture Overview](#architecture-overview)
 2. [OS Concepts Demonstrated](#os-concepts-demonstrated)
-3. [Feature Implementation Map](#feature-implementation-map)
-4. [Design Decisions & OS Rationale](#design-decisions--os-rationale)
-5. [Project Structure](#project-structure)
-6. [Setup Instructions](#setup-instructions)
-7. [Run Instructions](#run-instructions)
-8. [Testing Steps](#testing-steps)
-9. [Debugging Workflow](#debugging-workflow)
-10. [Shell Commands Used](#shell-commands-used)
-11. [Process Inspection & Monitoring](#process-inspection--monitoring)
-12. [Tooling Evidence & OS Learning](#tooling-evidence--os-learning)
-13. [Known Limitations](#known-limitations)
-14. [Future Work](#future-work)
+3. [Calendar & Todo Module](#calendar--todo-module)
+4. [Feature Implementation Map](#feature-implementation-map)
+5. [Design Decisions & OS Rationale](#design-decisions--os-rationale)
+6. [Project Structure](#project-structure)
+7. [Setup Instructions](#setup-instructions)
+8. [Run Instructions](#run-instructions)
+9. [Testing Steps](#testing-steps)
+10. [Debugging Workflow](#debugging-workflow)
+11. [Shell Commands Used](#shell-commands-used)
+12. [Process Inspection & Monitoring](#process-inspection--monitoring)
+13. [Tooling Evidence & OS Learning](#tooling-evidence--os-learning)
+14. [Known Limitations](#known-limitations)
+15. [Future Work](#future-work)
 
 ---
 
@@ -35,6 +36,7 @@ The system follows a **three-tier architecture** where each layer demonstrates d
 │     HTML / CSS / JavaScript │    - Real-time clock display
 │     - Alarm scheduling UI   │    - Browser notifications API
 │     - Reminder management   │    - Web Audio API for sounds
+│     - Calendar & todo view  │    - Calendar date navigation
 │     - World clock display   │    - LocalStorage persistence
 └──────────────┬──────────────┘
                │ HTTP (GET/POST JSON)
@@ -48,6 +50,8 @@ The system follows a **three-tier architecture** where each layer demonstrates d
 │     - /api/cancel           │    - Health monitoring
 │     - /api/active           │
 │     - /api/status           │
+│     - /api/calendar/:ym     │    - Calendar data aggregation
+│     - /api/todo (CRUD)      │    - Todo management via file I/O
 └──────────────┬──────────────┘
                │ fork() + exec() (via child_process)
                ▼
@@ -60,6 +64,8 @@ The system follows a **three-tier architecture** where each layer demonstrates d
 │     - list command          │    - os.kill() → signal handling
 │     - cancel command        │    - os.execlp() → process replace
 │     - status command        │    - os.access() → file checks
+│     - todo command          │    - json file I/O → todo CRUD
+│     - calendar command      │    - calendar module → date math
 └──────────────┬──────────────┘
                │ System calls (via Python's os module)
                ▼
@@ -119,6 +125,69 @@ The system follows a **three-tier architecture** where each layer demonstrates d
 | 14  | **File-based IPC**          | `open()`, `f.write()`, `f.read()`  | [alarm_engine.py](src/alarm_engine.py) — PID tracking functions                        | Inter-process communication via shared file (like PID files in `/var/run/`) |
 | 15  | **Process Spawning**        | `child_process.execFile()`         | [server.js](server/server.js) — all API routes                                         | Node.js wrapper around fork()+exec()                                        |
 | 16  | **Child Process Exit**      | `os._exit(0)`                      | [alarm_engine.py](src/alarm_engine.py) — child process                                 | Clean exit without flushing parent's stdio buffers                          |
+| 17  | **File-based Persistence**  | `json.load()`, `json.dump()`       | [alarm_engine.py](src/alarm_engine.py) — todo CRUD functions                           | Persistent task storage via kernel VFS file I/O                             |
+| 18  | **Calendar Computation**    | `calendar.monthrange()`            | [alarm_engine.py](src/alarm_engine.py) — `get_calendar_data()`                         | Date math for month layouts using stdlib                                    |
+
+---
+
+## Calendar & Todo Module
+
+The calendar module provides a **visual layer over the task scheduling system**, demonstrating how OS-level scheduling maps to calendar-based task management.
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────┐
+│              Calendar View (Browser)          │
+│  ┌──────────┬──────────┬──────────┐          │
+│  │ Mon      │ Tue      │ ...      │  Monthly │
+│  │          │ ●○       │          │  Grid    │
+│  │          │ 2 events │          │          │
+│  └──────────┴──────────┴──────────┘          │
+│         ↓ Click date                          │
+│  ┌────────────────────────────────┐          │
+│  │ Day Detail Panel               │          │
+│  │  ⏰ Alarm:  Meeting (PID 123) │ ← Active │
+│  │  🔔 Reminder: Call mom        │   process │
+│  │  📋 Todo: Buy groceries  [✓]  │ ← File   │
+│  │  [+ Add]                       │   stored  │
+│  └────────────────────────────────┘          │
+└──────────────┬───────────────────────────────┘
+               │ HTTP API
+               ▼
+┌──────────────────────────────────────────────┐
+│  GET /api/calendar/2026-02                    │
+│  → python3 alarm_engine.py calendar "2026-02" │
+│  → Reads PID file (active processes)          │
+│  → Reads todo JSON file (persistent tasks)    │
+│  → Returns unified calendar JSON              │
+│                                               │
+│  POST/PUT/DELETE /api/todo                    │
+│  → python3 alarm_engine.py todo <subcommand>  │
+│  → CRUD operations on /tmp/todos.json         │
+└──────────────────────────────────────────────┘
+```
+
+### Two Types of Calendar Entries
+
+| Type              | Storage                 | Scheduling                           | Lifecycle                              |
+| ----------------- | ----------------------- | ------------------------------------ | -------------------------------------- |
+| **Time Reminder** | PID file + localStorage | `os.fork()` → `time.sleep()` process | Background process; triggers at time   |
+| **Date Todo**     | JSON file (persistent)  | No process — date-anchored task      | Persists until marked complete/deleted |
+
+This distinction mirrors real OS concepts:
+
+- **Reminders** = scheduled processes (like cron jobs) — they consume a kernel process slot and trigger at a specific time
+- **Todos** = persistent data (like filesystem entries) — they exist as file data managed through I/O system calls
+
+### OS Concepts in the Calendar Module
+
+| Concept                | Implementation                                        | Why It Matters                                       |
+| ---------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+| **File I/O**           | `open()`, `json.load()`, `json.dump()` for todos      | Every read/write goes through the kernel's VFS layer |
+| **Data Aggregation**   | Calendar reads both PID file and todo file            | Demonstrates reading multiple OS-level data sources  |
+| **Process Inspection** | `os.kill(pid, 0)` to verify alarm processes are alive | Calendar reflects true process state, not stale data |
+| **Calendar Math**      | `calendar.monthrange()` for month layout              | Standard library wrapping POSIX time functions       |
 
 ---
 
@@ -126,18 +195,20 @@ The system follows a **three-tier architecture** where each layer demonstrates d
 
 This section maps each promised feature to its implementation location, showing that all kickoff features are visibly implemented:
 
-| Proposed Feature             | Implementation Location                                                                               | OS Concept Used                                          |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| **Alarm Scheduling**         | [alarm_engine.py → `schedule_alarm()`](src/alarm_engine.py)                                           | `os.fork()`, `time.sleep()`, `time.mktime()`             |
-| **Calendar Reminder System** | [script.js → `saveReminder()`](frontend/script.js), [server.js → `POST /api/alarm`](server/server.js) | Same scheduling pipeline, with notes/metadata            |
-| **World Clock**              | [alarm_engine.py → `get_world_clock_json()`](src/alarm_engine.py)                                     | `os.environ["TZ"]`, `time.tzset()`, `time.localtime()`   |
-| **Task Cancellation**        | [alarm_engine.py → `cancel_alarm()`](src/alarm_engine.py)                                             | `os.kill(pid, signal.SIGTERM)`, `os.kill(pid, 0)`        |
-| **Sound Triggering**         | [alarm_engine.py → `play_sound()`](src/alarm_engine.py)                                               | `os.execlp("afplay")`, `os.access()`, `os.fork()`        |
-| **Duplicate Prevention**     | [alarm_engine.py → `is_duplicate_alarm()`](src/alarm_engine.py)                                       | `os.kill(pid, 0)`, file-based PID tracking               |
-| **Active Process Listing**   | [alarm_engine.py → `list_active_alarms_json()`](src/alarm_engine.py)                                  | PID file scanning + `os.kill(pid, 0)`                    |
-| **Background Execution**     | [alarm_engine.py → child process](src/alarm_engine.py)                                                | `os.fork()` → parent returns, child sleeps independently |
-| **Zombie Prevention**        | [alarm_engine.py → `schedule_alarm()`](src/alarm_engine.py)                                           | `signal.signal(SIGCHLD, SIG_IGN)`                        |
-| **Multi-timezone Time**      | [alarm_engine.py → `get_world_clock_json()`](src/alarm_engine.py)                                     | 8 IANA timezones via process environment manipulation    |
+| Proposed Feature             | Implementation Location                                                                                              | OS Concept Used                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Alarm Scheduling**         | [alarm_engine.py → `schedule_alarm()`](src/alarm_engine.py)                                                          | `os.fork()`, `time.sleep()`, `time.mktime()`             |
+| **Calendar Reminder System** | [script.js → `saveReminder()`](frontend/script.js), [server.js → `POST /api/alarm`](server/server.js)                | Same scheduling pipeline, with notes/metadata            |
+| **Calendar Todo System**     | [alarm*engine.py → `todo*\*()`](src/alarm_engine.py), [script.js → calendar tab](frontend/script.js)                 | File I/O (`json.load/dump`), VFS kernel calls            |
+| **Calendar View**            | [script.js → `renderCalendar()`](frontend/script.js), [alarm_engine.py → `get_calendar_data()`](src/alarm_engine.py) | Aggregates process table + file data                     |
+| **World Clock**              | [alarm_engine.py → `get_world_clock_json()`](src/alarm_engine.py)                                                    | `os.environ["TZ"]`, `time.tzset()`, `time.localtime()`   |
+| **Task Cancellation**        | [alarm_engine.py → `cancel_alarm()`](src/alarm_engine.py)                                                            | `os.kill(pid, signal.SIGTERM)`, `os.kill(pid, 0)`        |
+| **Sound Triggering**         | [alarm_engine.py → `play_sound()`](src/alarm_engine.py)                                                              | `os.execlp("afplay")`, `os.access()`, `os.fork()`        |
+| **Duplicate Prevention**     | [alarm_engine.py → `is_duplicate_alarm()`](src/alarm_engine.py)                                                      | `os.kill(pid, 0)`, file-based PID tracking               |
+| **Active Process Listing**   | [alarm_engine.py → `list_active_alarms_json()`](src/alarm_engine.py)                                                 | PID file scanning + `os.kill(pid, 0)`                    |
+| **Background Execution**     | [alarm_engine.py → child process](src/alarm_engine.py)                                                               | `os.fork()` → parent returns, child sleeps independently |
+| **Zombie Prevention**        | [alarm_engine.py → `schedule_alarm()`](src/alarm_engine.py)                                                          | `signal.signal(SIGCHLD, SIG_IGN)`                        |
+| **Multi-timezone Time**      | [alarm_engine.py → `get_world_clock_json()`](src/alarm_engine.py)                                                    | 8 IANA timezones via process environment manipulation    |
 
 ---
 

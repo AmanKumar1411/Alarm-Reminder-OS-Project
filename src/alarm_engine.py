@@ -21,6 +21,13 @@ Usage:
   python3 alarm_engine.py cancel <PID>                            Cancel a scheduled alarm
   python3 alarm_engine.py test-sound <name>                       Play a sound immediately
   python3 alarm_engine.py status                                  Engine diagnostics
+  python3 alarm_engine.py todo add "YYYY-MM-DD" "title" ["desc"]  Add a todo item
+  python3 alarm_engine.py todo list                               List all todos
+  python3 alarm_engine.py todo complete <id>                      Mark a todo complete
+  python3 alarm_engine.py todo delete <id>                        Delete a todo
+  python3 alarm_engine.py todo edit <id> "title" ["desc"]         Edit a todo
+  python3 alarm_engine.py todo date "YYYY-MM-DD"                  List todos for a date
+  python3 alarm_engine.py calendar "YYYY-MM"                      Calendar data for a month
 """
 
 import sys
@@ -39,6 +46,7 @@ from datetime import datetime, timezone
 
 MAX_ACTIVE_ALARMS = 64
 PID_FILE = "/tmp/alarm_engine_pids.dat"
+TODO_FILE = "/tmp/alarm_engine_todos.json"
 
 # ================================================================
 #  PID TRACKING — File-based process registry for duplicate prevention
@@ -199,6 +207,231 @@ def list_active_alarms_json() -> None:
             })
 
     print(json.dumps(alarms, indent=2))
+    sys.stdout.flush()
+
+
+# ================================================================
+#  TODO MANAGEMENT — File-based todo/task tracker
+#
+#  OS Concept: Uses a JSON file as a persistent data store,
+#  demonstrating file I/O system calls (open, read, write, close).
+#  Each read/write goes through the kernel's VFS layer.
+#  The todo system complements the alarm scheduler — alarms are
+#  time-triggered processes, while todos are date-anchored tasks
+#  managed via file-based persistence.
+# ================================================================
+
+
+def _load_todos() -> list:
+    """Load todos from the JSON file."""
+    try:
+        with open(TODO_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def _save_todos(todos: list) -> None:
+    """Save todos to the JSON file."""
+    with open(TODO_FILE, "w") as f:
+        json.dump(todos, f, indent=2)
+
+
+def _next_todo_id(todos: list) -> int:
+    """Generate the next unique todo ID."""
+    if not todos:
+        return 1
+    return max(t.get("id", 0) for t in todos) + 1
+
+
+def todo_add(date_str: str, title: str, description: str = "") -> None:
+    """Add a new todo item for a specific date."""
+    # Validate date format
+    try:
+        time.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        result = {"status": "error", "message": "Invalid date format. Use YYYY-MM-DD"}
+        print(json.dumps(result))
+        sys.stdout.flush()
+        return
+
+    todos = _load_todos()
+    new_id = _next_todo_id(todos)
+
+    todo = {
+        "id": new_id,
+        "date": date_str,
+        "title": title[:200],
+        "description": description[:500],
+        "completed": False,
+        "created_at": int(time.time()),
+    }
+    todos.append(todo)
+    _save_todos(todos)
+
+    print(f"[ALARM ENGINE] Todo #{new_id} added for {date_str}", file=sys.stderr)
+    result = {"status": "success", "message": f"Todo added", "todo": todo}
+    print(json.dumps(result))
+    sys.stdout.flush()
+
+
+def todo_list_all() -> None:
+    """List all todos as JSON."""
+    todos = _load_todos()
+    print(json.dumps(todos, indent=2))
+    sys.stdout.flush()
+
+
+def todo_list_by_date(date_str: str) -> None:
+    """List todos for a specific date."""
+    todos = _load_todos()
+    filtered = [t for t in todos if t.get("date") == date_str]
+    print(json.dumps(filtered, indent=2))
+    sys.stdout.flush()
+
+
+def todo_complete(todo_id: int) -> None:
+    """Mark a todo as complete or toggle it back."""
+    todos = _load_todos()
+    for t in todos:
+        if t.get("id") == todo_id:
+            t["completed"] = not t["completed"]
+            _save_todos(todos)
+            state = "completed" if t["completed"] else "incomplete"
+            print(f"[ALARM ENGINE] Todo #{todo_id} marked {state}", file=sys.stderr)
+            result = {"status": "success", "message": f"Todo marked {state}", "todo": t}
+            print(json.dumps(result))
+            sys.stdout.flush()
+            return
+
+    result = {"status": "error", "message": f"Todo #{todo_id} not found"}
+    print(json.dumps(result))
+    sys.stdout.flush()
+
+
+def todo_delete(todo_id: int) -> None:
+    """Delete a todo by ID."""
+    todos = _load_todos()
+    new_todos = [t for t in todos if t.get("id") != todo_id]
+
+    if len(new_todos) == len(todos):
+        result = {"status": "error", "message": f"Todo #{todo_id} not found"}
+        print(json.dumps(result))
+        sys.stdout.flush()
+        return
+
+    _save_todos(new_todos)
+    print(f"[ALARM ENGINE] Todo #{todo_id} deleted", file=sys.stderr)
+    result = {"status": "success", "message": f"Todo #{todo_id} deleted"}
+    print(json.dumps(result))
+    sys.stdout.flush()
+
+
+def todo_edit(todo_id: int, title: str, description: str = "") -> None:
+    """Edit a todo's title and description."""
+    todos = _load_todos()
+    for t in todos:
+        if t.get("id") == todo_id:
+            t["title"] = title[:200]
+            if description:
+                t["description"] = description[:500]
+            _save_todos(todos)
+            print(f"[ALARM ENGINE] Todo #{todo_id} updated", file=sys.stderr)
+            result = {"status": "success", "message": "Todo updated", "todo": t}
+            print(json.dumps(result))
+            sys.stdout.flush()
+            return
+
+    result = {"status": "error", "message": f"Todo #{todo_id} not found"}
+    print(json.dumps(result))
+    sys.stdout.flush()
+
+
+# ================================================================
+#  CALENDAR DATA — Aggregates alarms, reminders and todos for a month
+#
+#  OS Concept: Combines data from the PID tracking file (active
+#  alarm processes) with the todo JSON file to build a unified
+#  calendar view. Demonstrates reading multiple data sources
+#  through file I/O and process inspection (os.kill(pid, 0)).
+# ================================================================
+
+import calendar as cal_module
+
+
+def get_calendar_data(year_month: str) -> None:
+    """
+    Generate calendar data for a given month (YYYY-MM).
+    Returns JSON with: month info, days with events, active alarms, todos.
+    """
+    try:
+        parts = year_month.split("-")
+        year = int(parts[0])
+        month = int(parts[1])
+    except (ValueError, IndexError):
+        result = {"status": "error", "message": "Invalid format. Use YYYY-MM"}
+        print(json.dumps(result))
+        sys.stdout.flush()
+        return
+
+    # Get calendar info for the month
+    first_weekday, num_days = cal_module.monthrange(year, month)
+    month_name = cal_module.month_name[month]
+
+    # Collect active alarms from PID file
+    cleanup_dead_pids()
+    alarms_list = []
+    try:
+        with open(PID_FILE, "r") as f:
+            lines = f.readlines()
+        for line in lines:
+            parts = line.strip().split("|")
+            if len(parts) >= 4:
+                try:
+                    entry_pid = int(parts[0])
+                    os.kill(entry_pid, 0)  # Verify alive
+                    alarm_date = parts[1][:10]  # YYYY-MM-DD
+                    alarm_time = parts[1][11:16] if len(parts[1]) > 10 else ""
+                    alarms_list.append({
+                        "pid": entry_pid,
+                        "date": alarm_date,
+                        "time": alarm_time,
+                        "message": parts[2],
+                        "sound": parts[3],
+                        "type": "alarm",
+                    })
+                except (ValueError, OSError):
+                    continue
+    except FileNotFoundError:
+        pass
+
+    # Collect todos
+    todos = _load_todos()
+
+    # Build date→events map for the requested month
+    month_prefix = f"{year:04d}-{month:02d}"
+    date_events = {}
+    for day in range(1, num_days + 1):
+        date_key = f"{month_prefix}-{day:02d}"
+        day_alarms = [a for a in alarms_list if a["date"] == date_key]
+        day_todos = [t for t in todos if t.get("date") == date_key]
+        if day_alarms or day_todos:
+            date_events[date_key] = {
+                "alarms": day_alarms,
+                "todos": day_todos,
+                "count": len(day_alarms) + len(day_todos),
+            }
+
+    result = {
+        "year": year,
+        "month": month,
+        "month_name": month_name,
+        "first_weekday": first_weekday,  # 0=Monday
+        "num_days": num_days,
+        "today": time.strftime("%Y-%m-%d", time.localtime()),
+        "events": date_events,
+    }
+    print(json.dumps(result, indent=2))
     sys.stdout.flush()
 
 
@@ -618,7 +851,14 @@ def print_usage() -> None:
         f"  python3 {sys.argv[0]} list                                    List active alarm processes\n"
         f"  python3 {sys.argv[0]} cancel <PID>                            Cancel a scheduled alarm\n"
         f"  python3 {sys.argv[0]} test-sound <name>                       Play a sound immediately\n"
-        f"  python3 {sys.argv[0]} status                                  Engine diagnostics",
+        f"  python3 {sys.argv[0]} status                                  Engine diagnostics\n"
+        f"  python3 {sys.argv[0]} todo add \"YYYY-MM-DD\" \"title\" [\"desc\"]  Add a todo\n"
+        f"  python3 {sys.argv[0]} todo list                               List all todos\n"
+        f"  python3 {sys.argv[0]} todo complete <id>                      Toggle todo completion\n"
+        f"  python3 {sys.argv[0]} todo delete <id>                        Delete a todo\n"
+        f"  python3 {sys.argv[0]} todo edit <id> \"title\" [\"desc\"]         Edit a todo\n"
+        f"  python3 {sys.argv[0]} todo date \"YYYY-MM-DD\"                  List todos for a date\n"
+        f"  python3 {sys.argv[0]} calendar \"YYYY-MM\"                      Calendar data for a month",
         file=sys.stderr,
     )
 
@@ -703,9 +943,93 @@ def main() -> int:
             "language": "Python",
             "python_version": platform.python_version(),
             "pid_file": PID_FILE,
+            "todo_file": TODO_FILE,
         }
         print(json.dumps(result))
         sys.stdout.flush()
+
+    elif command == "todo":
+        # TODO MANAGEMENT — File-based task tracking
+        # OS Concept: Persistent state via file I/O (open/read/write).
+        if len(sys.argv) < 3:
+            print(f"Usage: python3 {sys.argv[0]} todo <add|list|complete|delete|edit|date> ...",
+                  file=sys.stderr)
+            result = {"status": "error", "message": "Missing todo subcommand"}
+            print(json.dumps(result))
+            return 1
+
+        subcmd = sys.argv[2]
+
+        if subcmd == "add":
+            if len(sys.argv) < 5:
+                result = {"status": "error", "message": "Usage: todo add YYYY-MM-DD title [description]"}
+                print(json.dumps(result))
+                return 1
+            desc = sys.argv[5] if len(sys.argv) >= 6 else ""
+            todo_add(sys.argv[3], sys.argv[4], desc)
+
+        elif subcmd == "list":
+            todo_list_all()
+
+        elif subcmd == "date":
+            if len(sys.argv) < 4:
+                result = {"status": "error", "message": "Usage: todo date YYYY-MM-DD"}
+                print(json.dumps(result))
+                return 1
+            todo_list_by_date(sys.argv[3])
+
+        elif subcmd == "complete":
+            if len(sys.argv) < 4:
+                result = {"status": "error", "message": "Usage: todo complete <id>"}
+                print(json.dumps(result))
+                return 1
+            try:
+                todo_complete(int(sys.argv[3]))
+            except ValueError:
+                result = {"status": "error", "message": "Invalid todo ID"}
+                print(json.dumps(result))
+                return 1
+
+        elif subcmd == "delete":
+            if len(sys.argv) < 4:
+                result = {"status": "error", "message": "Usage: todo delete <id>"}
+                print(json.dumps(result))
+                return 1
+            try:
+                todo_delete(int(sys.argv[3]))
+            except ValueError:
+                result = {"status": "error", "message": "Invalid todo ID"}
+                print(json.dumps(result))
+                return 1
+
+        elif subcmd == "edit":
+            if len(sys.argv) < 5:
+                result = {"status": "error", "message": "Usage: todo edit <id> title [description]"}
+                print(json.dumps(result))
+                return 1
+            try:
+                desc = sys.argv[5] if len(sys.argv) >= 6 else ""
+                todo_edit(int(sys.argv[3]), sys.argv[4], desc)
+            except ValueError:
+                result = {"status": "error", "message": "Invalid todo ID"}
+                print(json.dumps(result))
+                return 1
+
+        else:
+            result = {"status": "error", "message": f"Unknown todo subcommand: {subcmd}"}
+            print(json.dumps(result))
+            return 1
+
+    elif command == "calendar":
+        # CALENDAR DATA — Aggregates alarms and todos for a month
+        # OS Concept: Combines PID file (process tracking) and todo
+        # file (persistent storage) for a unified view.
+        if len(sys.argv) < 3:
+            # Default to current month
+            ym = time.strftime("%Y-%m", time.localtime())
+        else:
+            ym = sys.argv[2]
+        get_calendar_data(ym)
 
     else:
         print(f"Unknown command: {command}", file=sys.stderr)
