@@ -2,27 +2,49 @@
 
 > **"Exploring How the Operating System Manages Time-Based Events and Process Triggers"**
 
+![Python](https://img.shields.io/badge/Python-3.6%2B-blue?logo=python&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-14%2B-green?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-4.x-lightgrey?logo=express)
+![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-informational)
+![License](https://img.shields.io/badge/License-Academic-orange)
+
 An Operating Systems mini-project that implements a **miniature task scheduler** demonstrating how real operating systems handle process creation, scheduling, signal handling, timezone management, and background task execution — using a Python backend engine, Node.js bridge server, and modern web frontend.
+
+---
+
+## At a Glance
+
+| | |
+|---|---|
+| **What it is** | An OS-concepts demonstration built as a working Alarm & Reminder web app |
+| **Who it's for** | CS students learning Operating Systems (process management, scheduling, signals) |
+| **Tech stack** | Python 3 (core engine) · Node.js/Express (server) · HTML/CSS/JS (frontend) |
+| **Key features** | Schedule alarms, manage todos, view world clock, monthly calendar |
+| **OS concepts** | `os.fork()`, `os.kill()`, `time.sleep()`, `os.execlp()`, signals, PID tracking |
+| **Run it** | `make install-deps && make run` → open http://localhost:3000 |
+| **Lines of code** | ~3,950 (Python: 1,042 · JS: 1,449 · CSS: 1,459) |
+| **Dependencies** | Express.js, CORS — zero Python dependencies (stdlib only) |
 
 ---
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [OS Concepts Demonstrated](#os-concepts-demonstrated)
-3. [Calendar & Todo Module](#calendar--todo-module)
-4. [Feature Implementation Map](#feature-implementation-map)
-5. [Design Decisions & OS Rationale](#design-decisions--os-rationale)
-6. [Project Structure](#project-structure)
-7. [Setup Instructions](#setup-instructions)
-8. [Run Instructions](#run-instructions)
-9. [Testing Steps](#testing-steps)
-10. [Debugging Workflow](#debugging-workflow)
-11. [Shell Commands Used](#shell-commands-used)
-12. [Process Inspection & Monitoring](#process-inspection--monitoring)
-13. [Tooling Evidence & OS Learning](#tooling-evidence--os-learning)
-14. [Known Limitations](#known-limitations)
-15. [Future Work](#future-work)
+1. [At a Glance](#at-a-glance)
+2. [Architecture Overview](#architecture-overview)
+3. [OS Concepts Demonstrated](#os-concepts-demonstrated)
+4. [Calendar & Todo Module](#calendar--todo-module)
+5. [Feature Implementation Map](#feature-implementation-map)
+6. [Design Decisions & OS Rationale](#design-decisions--os-rationale)
+7. [Project Structure](#project-structure)
+8. [Setup Instructions](#setup-instructions)
+9. [Run Instructions](#run-instructions)
+10. [Testing Steps](#testing-steps)
+11. [Debugging Workflow](#debugging-workflow)
+12. [Shell Commands Used](#shell-commands-used)
+13. [Process Inspection & Monitoring](#process-inspection--monitoring)
+14. [Tooling Evidence & OS Learning](#tooling-evidence--os-learning)
+15. [Known Limitations](#known-limitations)
+16. [Future Work](#future-work)
 
 ---
 
